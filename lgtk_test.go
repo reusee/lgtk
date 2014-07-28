@@ -12,7 +12,7 @@ function win:on_destroy()
 	Exit(0)
 end
 win:show_all()
-	`)
+	`, nil)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

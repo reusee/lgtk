@@ -23,7 +23,7 @@ type Gtk struct {
 	conn       net.Conn
 }
 
-func New(code string) (*Gtk, error) {
+func New(code string, functions map[string]interface{}) (*Gtk, error) {
 	// init
 	g := &Gtk{
 		Lua:        lgo.NewLua(),
@@ -40,6 +40,7 @@ func New(code string) (*Gtk, error) {
 			g.Return <- v
 		},
 	})
+	g.Lua.RegisterFunctions(functions)
 
 	// eval notify
 	ln, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(30000+rand.Intn(20000)))
