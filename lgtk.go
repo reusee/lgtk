@@ -44,7 +44,10 @@ func New(code string, bindings ...interface{}) (*Gtk, error) {
 			g.Return <- v
 		},
 	)
-	g.Lua.Set(bindings...)
+	err = g.Lua.Set(bindings...)
+	if err != nil {
+		return nil, err
+	}
 
 	// eval notify
 	ln, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(30000+rand.Intn(20000)))
@@ -58,7 +61,7 @@ func New(code string, bindings ...interface{}) (*Gtk, error) {
 		close(luaConnected)
 	}()
 	g.Lua.Set("_Exec", func() {
-		g.Lua.Eval(<-g.codeToExec)
+		g.Lua.MustEval(<-g.codeToExec)
 	})
 
 	// start lua
@@ -87,7 +90,7 @@ GLib.io_add_watch(channel, GLib.PRIORITY_DEFAULT, GLib.IOCondition.IN, function(
 	return true
 end)
 	`)
-	g.Eval(code)
+	g.MustEval(code)
 	go g.Eval("Gtk.main()")
 
 	// wait lua
