@@ -21,12 +21,14 @@ win:show_all()
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	g.Exec(`
-Return('foobar')
-	`)
-	ret := (<-g.Return).(string)
-	if ret != "foobar" {
+
+	var ret []interface{}
+	g.WaitExec(func() {
+		ret = g.MustEval(`return 42`)
+	})
+	if ret[0].(float64) != 42 {
 		t.Fatalf("return not match")
 	}
+
 	time.Sleep(time.Second * 1)
 }

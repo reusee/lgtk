@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/reusee/lua"
@@ -18,9 +19,8 @@ func init() {
 
 type Gtk struct {
 	*lua.Lua
-	Return     chan interface{}
-	codeToExec chan string
-	conn       net.Conn
+	queue chan func()
+	conn  net.Conn
 }
 
 func New(code string, bindings ...interface{}) (*Gtk, error) {
@@ -30,18 +30,14 @@ func New(code string, bindings ...interface{}) (*Gtk, error) {
 		return nil, err
 	}
 	g := &Gtk{
-		Lua:        l,
-		Return:     make(chan interface{}, 8),
-		codeToExec: make(chan string, 8),
+		Lua:   l,
+		queue: make(chan func(), 8),
 	}
 
 	// functions
 	g.Lua.Set(
 		"Exit", func(i int) {
 			os.Exit(i)
-		},
-		"Return", func(v interface{}) {
-			g.Return <- v
 		},
 	)
 	err = g.Lua.Set(bindings...)
@@ -61,7 +57,7 @@ func New(code string, bindings ...interface{}) (*Gtk, error) {
 		close(luaConnected)
 	}()
 	g.Lua.Set("_Exec", func() {
-		g.Lua.MustEval(<-g.codeToExec)
+		(<-g.queue)()
 	})
 
 	// start lua
@@ -103,7 +99,18 @@ end)
 	return g, nil
 }
 
-func (g *Gtk) Exec(code string) {
-	g.codeToExec <- code
+func (g *Gtk) Exec(fun func()) {
+	g.queue <- fun
 	g.conn.Write([]byte{'_'})
+}
+
+func (g *Gtk) WaitExec(fun func()) {
+	var m sync.Mutex
+	m.Lock()
+	g.queue <- func() {
+		fun()
+		m.Unlock()
+	}
+	g.conn.Write([]byte{'_'})
+	m.Lock()
 }
