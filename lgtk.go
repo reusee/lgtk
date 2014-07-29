@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/reusee/lgo"
+	"github.com/reusee/lua"
 )
 
 func init() {
@@ -17,30 +17,34 @@ func init() {
 }
 
 type Gtk struct {
-	*lgo.Lua
+	*lua.Lua
 	Return     chan interface{}
 	codeToExec chan string
 	conn       net.Conn
 }
 
-func New(code string, functions map[string]interface{}) (*Gtk, error) {
+func New(code string, bindings ...interface{}) (*Gtk, error) {
 	// init
+	l, err := lua.New()
+	if err != nil {
+		return nil, err
+	}
 	g := &Gtk{
-		Lua:        lgo.NewLua(),
+		Lua:        l,
 		Return:     make(chan interface{}, 8),
 		codeToExec: make(chan string, 8),
 	}
 
 	// functions
-	g.Lua.RegisterFunctions(map[string]interface{}{
-		"Exit": func(i int) {
+	g.Lua.Set(
+		"Exit", func(i int) {
 			os.Exit(i)
 		},
-		"Return": func(v interface{}) {
+		"Return", func(v interface{}) {
 			g.Return <- v
 		},
-	})
-	g.Lua.RegisterFunctions(functions)
+	)
+	g.Lua.Set(bindings...)
 
 	// eval notify
 	ln, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(30000+rand.Intn(20000)))
@@ -53,12 +57,12 @@ func New(code string, functions map[string]interface{}) (*Gtk, error) {
 		g.conn, acceptErr = ln.Accept()
 		close(luaConnected)
 	}()
-	g.Lua.RegisterFunction("_Exec", func() {
-		g.Lua.RunString(<-g.codeToExec)
+	g.Lua.Set("_Exec", func() {
+		g.Lua.Eval(<-g.codeToExec)
 	})
 
 	// start lua
-	g.RunString(`
+	g.Eval(`
 lgi = require('lgi')
 Gtk = lgi.require('Gtk', '3.0')
 Gio = lgi.Gio
@@ -70,10 +74,10 @@ socket = Gio.Socket.new(Gio.SocketFamily.IPV4, Gio.SocketType.STREAM, Gio.Socket
 	if err != nil {
 		return nil, err
 	}
-	g.RunString(fmt.Sprintf(`
+	g.Eval(fmt.Sprintf(`
 socket:connect(Gio.InetSocketAddress.new_from_string("%s", %s))
 	`, host, port))
-	g.RunString(`
+	g.Eval(`
 channel = GLib.IOChannel.unix_new(socket.fd)
 bytes = require('bytes')
 buf = bytes.new(1)
@@ -83,8 +87,8 @@ GLib.io_add_watch(channel, GLib.PRIORITY_DEFAULT, GLib.IOCondition.IN, function(
 	return true
 end)
 	`)
-	g.RunString(code)
-	go g.RunString("Gtk.main()")
+	g.Eval(code)
+	go g.Eval("Gtk.main()")
 
 	// wait lua
 	select {

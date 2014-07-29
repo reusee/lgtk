@@ -7,12 +7,17 @@ import (
 
 func TestLgtk(t *testing.T) {
 	g, err := New(`
-win = Gtk.Window{}
+win = Gtk.Window{
+	Gtk.Label{
+		label = Text,
+	},
+}
 function win:on_destroy()
 	Exit(0)
 end
 win:show_all()
-	`, nil)
+	`,
+		"Text", "Foobarbaz")
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -23,5 +28,5 @@ Return('foobar')
 	if ret != "foobar" {
 		t.Fatalf("return not match")
 	}
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 1)
 }
