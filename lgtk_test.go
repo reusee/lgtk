@@ -24,7 +24,7 @@ win:show_all()
 
 	var ret []interface{}
 	g.WaitExec(func() {
-		ret = g.MustEval(`return 42`)
+		ret = g.Eval(`return 42`)
 	})
 	if ret[0].(float64) != 42 {
 		t.Fatalf("return not match")

@@ -40,7 +40,7 @@ func New(code string, bindings ...interface{}) (*Gtk, error) {
 			os.Exit(i)
 		},
 	)
-	err = g.Lua.Set(bindings...)
+	err = g.Lua.Pset(bindings...)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func New(code string, bindings ...interface{}) (*Gtk, error) {
 	})
 
 	// start lua
-	g.MustEval(`
+	g.Eval(`
 lgi = require('lgi')
 Gtk = lgi.require('Gtk', '3.0')
 Gio = lgi.Gio
@@ -73,10 +73,10 @@ socket = Gio.Socket.new(Gio.SocketFamily.IPV4, Gio.SocketType.STREAM, Gio.Socket
 	if err != nil {
 		return nil, err
 	}
-	g.MustEval(fmt.Sprintf(`
+	g.Eval(fmt.Sprintf(`
 socket:connect(Gio.InetSocketAddress.new_from_string("%s", %s))
 	`, host, port))
-	g.MustEval(`
+	g.Eval(`
 channel = GLib.IOChannel.unix_new(socket.fd)
 bytes = require('bytes')
 buf = bytes.new(1)
@@ -86,8 +86,8 @@ GLib.io_add_watch(channel, GLib.PRIORITY_DEFAULT, GLib.IOCondition.IN, function(
 	return true
 end)
 	`)
-	g.MustEval(code)
-	go g.MustEval("Gtk.main()")
+	g.Eval(code)
+	go g.Eval("Gtk.main()")
 
 	// wait lua
 	select {
