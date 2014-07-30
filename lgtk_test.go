@@ -24,7 +24,6 @@ function get_label()
 	return win.child.label:get_label()
 end
 
-win:show_all()
 	`,
 		"Text", "Foobarbaz")
 	if err != nil {
@@ -42,6 +41,8 @@ win:show_all()
 	g.Exec(func() {
 		g.Call("set_label", ">>> "+g.Call("get_label")[0].(string))
 	})
+
+	g.ExecEval(`win:show_all()`)
 
 	time.Sleep(time.Second * 1)
 }

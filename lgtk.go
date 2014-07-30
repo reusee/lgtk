@@ -114,3 +114,9 @@ func (g *Gtk) WaitExec(fun func()) {
 	g.conn.Write([]byte{'_'})
 	m.Lock()
 }
+
+func (g *Gtk) ExecEval(code string) {
+	g.Exec(func() {
+		g.Eval(code)
+	})
+}
