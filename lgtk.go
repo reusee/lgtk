@@ -115,8 +115,8 @@ func (g *Gtk) WaitExec(fun func()) {
 	m.Lock()
 }
 
-func (g *Gtk) ExecEval(code string) {
+func (g *Gtk) ExecEval(code string, envs ...interface{}) {
 	g.Exec(func() {
-		g.Eval(code)
+		g.Eval(code, envs...)
 	})
 }
