@@ -46,3 +46,11 @@ end
 
 	time.Sleep(time.Second * 1)
 }
+
+func TestClose(t *testing.T) {
+	g, err := New(``)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.Close()
+}

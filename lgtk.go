@@ -19,8 +19,9 @@ func init() {
 
 type Gtk struct {
 	*lua.Lua
-	queue chan func()
-	conn  net.Conn
+	queue       chan func()
+	conn        net.Conn
+	sigMainQuit chan struct{}
 }
 
 func New(code string, bindings ...interface{}) (*Gtk, error) {
@@ -30,8 +31,9 @@ func New(code string, bindings ...interface{}) (*Gtk, error) {
 		return nil, err
 	}
 	g := &Gtk{
-		Lua:   l,
-		queue: make(chan func(), 8),
+		Lua:         l,
+		queue:       make(chan func(), 8),
+		sigMainQuit: make(chan struct{}),
 	}
 
 	// functions
@@ -81,13 +83,21 @@ channel = GLib.IOChannel.unix_new(socket.fd)
 bytes = require('bytes')
 buf = bytes.new(1)
 GLib.io_add_watch(channel, GLib.PRIORITY_DEFAULT, GLib.IOCondition.IN, function()
-	_Exec()
 	socket:receive(buf)
+	_Exec()
 	return true
 end)
 	`)
 	g.Eval(code)
-	go g.Eval("Gtk.main()")
+
+	// main
+	g.Set("_SigMainQuit", func() {
+		close(g.sigMainQuit)
+	})
+	go g.Eval(`
+Gtk.main()
+_SigMainQuit()
+	`)
 
 	// wait lua
 	select {
@@ -119,4 +129,10 @@ func (g *Gtk) ExecEval(code string, envs ...interface{}) {
 	g.Exec(func() {
 		g.Eval(code, envs...)
 	})
+}
+
+func (g *Gtk) Close() {
+	g.ExecEval(`Gtk.main_quit()`)
+	<-g.sigMainQuit
+	g.Lua.Close()
 }
