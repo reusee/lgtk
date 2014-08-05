@@ -19,9 +19,9 @@ func init() {
 
 type Gtk struct {
 	*lua.Lua
-	queue       chan func()
-	conn        net.Conn
-	sigMainQuit chan struct{}
+	queue    chan func()
+	conn     net.Conn
+	MainQuit chan struct{}
 }
 
 func New(code string, bindings ...interface{}) (*Gtk, error) {
@@ -31,9 +31,9 @@ func New(code string, bindings ...interface{}) (*Gtk, error) {
 		return nil, err
 	}
 	g := &Gtk{
-		Lua:         l,
-		queue:       make(chan func(), 8),
-		sigMainQuit: make(chan struct{}),
+		Lua:      l,
+		queue:    make(chan func(), 8),
+		MainQuit: make(chan struct{}),
 	}
 
 	// functions
@@ -92,7 +92,7 @@ end)
 
 	// main
 	g.Set("_SigMainQuit", func() {
-		close(g.sigMainQuit)
+		close(g.MainQuit)
 	})
 	go g.Eval(`
 Gtk.main()
@@ -133,6 +133,6 @@ func (g *Gtk) ExecEval(code string, envs ...interface{}) {
 
 func (g *Gtk) Close() {
 	g.ExecEval(`Gtk.main_quit()`)
-	<-g.sigMainQuit
+	<-g.MainQuit
 	g.Lua.Close()
 }
