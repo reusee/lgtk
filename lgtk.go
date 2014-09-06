@@ -17,6 +17,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+// Gtk is a lua vm instance including Gtk helpers
 type Gtk struct {
 	*lua.Lua
 	queue    chan func()
@@ -24,6 +25,7 @@ type Gtk struct {
 	MainQuit chan struct{}
 }
 
+// New creates a new Gtk struct
 func New(code string, bindings ...interface{}) (*Gtk, error) {
 	// init
 	l, err := lua.New()
@@ -109,11 +111,13 @@ _SigMainQuit()
 	return g, nil
 }
 
+// Exec runs a function thread-safely and asynchronously
 func (g *Gtk) Exec(fun func()) {
 	g.queue <- fun
 	g.conn.Write([]byte{'_'})
 }
 
+// WaitExec runs a function thread-safely and wait for execution done
 func (g *Gtk) WaitExec(fun func()) {
 	var m sync.Mutex
 	m.Lock()
@@ -125,12 +129,14 @@ func (g *Gtk) WaitExec(fun func()) {
 	m.Lock()
 }
 
+// ExecEval runs a piece of code thread-safely and asynchronously
 func (g *Gtk) ExecEval(code string, envs ...interface{}) {
 	g.Exec(func() {
 		g.Eval(code, envs...)
 	})
 }
 
+// Close runs gtk_main_quit and closes the lua vm
 func (g *Gtk) Close() {
 	g.ExecEval(`Gtk.main_quit()`)
 	<-g.MainQuit
