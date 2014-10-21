@@ -14,7 +14,7 @@ win = Gtk.Window{
 	},
 }
 function win:on_destroy()
-	Exit(0)
+	Gtk.main_quit()
 end
 
 function set_label(s)
