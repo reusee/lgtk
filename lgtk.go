@@ -1,6 +1,7 @@
 package lgtk
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -10,11 +11,15 @@ import (
 	"sync"
 	"time"
 
+	crand "crypto/rand"
+
 	"github.com/reusee/lua"
 )
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	var seed int64
+	binary.Read(crand.Reader, binary.LittleEndian, &seed)
+	rand.Seed(seed)
 }
 
 // Gtk is a lua vm instance including Gtk helpers
@@ -54,14 +59,24 @@ func New(code string, bindings ...interface{}) (*Gtk, error) {
 	if err != nil {
 		return nil, err
 	}
-	luaConnected := make(chan bool)
-	var acceptErr error
+	luaConnected := make(chan struct{})
 	go func() {
-		g.conn, acceptErr = ln.Accept()
+		var err error
+		g.conn, err = ln.Accept()
+		if err != nil {
+			panic(fmt.Errorf("lgtk: %v", err))
+		}
 		close(luaConnected)
 	}()
 	g.Lua.Set("_Exec", func() {
-		(<-g.queue)()
+		for {
+			select {
+			case job := <-g.queue:
+				job()
+			default:
+				return
+			}
+		}
 	})
 
 	// start lua
@@ -84,12 +99,13 @@ socket:connect(Gio.InetSocketAddress.new_from_string("%s", %s))
 channel = GLib.IOChannel.unix_new(socket.fd)
 bytes = require('bytes')
 buf = bytes.new(1)
-GLib.io_add_watch(channel, GLib.PRIORITY_DEFAULT, GLib.IOCondition.IN, function()
+GLib.io_add_watch(channel, GLib.PRIORITY_HIGH, GLib.IOCondition.IN, function()
 	socket:receive(buf)
 	_Exec()
 	return true
 end)
 	`)
+
 	g.Eval(code)
 
 	// main
@@ -105,7 +121,7 @@ _SigMainQuit()
 	select {
 	case <-luaConnected:
 	case <-time.After(time.Second):
-		return nil, errors.New("lua not connecting")
+		return nil, errors.New("lua not connected")
 	}
 
 	return g, nil
